@@ -37,13 +37,14 @@ private struct APIArrival: Decodable {
     let eta_seconds: Double
 }
 
-// Official Metro Lisboa line colours (kept in sync with app/lib/models.dart).
+// Line colours — must match the app's palette in app/lib/models.dart
+// (lineColors) so the widget and the map show the same shades.
 func lineColor(_ line: String) -> Color {
     switch line {
-    case "Amarela": return Color(red: 0.992, green: 0.851, blue: 0.000) // #fdd900
-    case "Azul": return Color(red: 0.196, green: 0.427, blue: 0.788)    // #326dc9
-    case "Verde": return Color(red: 0.000, green: 0.847, blue: 0.690)   // #00d8b0
-    case "Vermelha": return Color(red: 0.929, green: 0.055, blue: 0.412) // #ed0e69
+    case "Amarela": return Color(red: 0.96863, green: 0.65882, blue: 0.00000) // #f7a800
+    case "Azul": return Color(red: 0.18431, green: 0.49020, blue: 0.88235)    // #2f7de1
+    case "Verde": return Color(red: 0.00000, green: 0.63137, blue: 0.60784)   // #00a19b
+    case "Vermelha": return Color(red: 0.91765, green: 0.11373, blue: 0.46275) // #ea1d76
     default: return .gray
     }
 }
