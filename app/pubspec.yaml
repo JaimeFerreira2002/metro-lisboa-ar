@@ -1,7 +1,7 @@
 name: metro_lisboa_ar
 description: Live Lisbon Metro trains — 2D map now, AR later.
 publish_to: 'none'
-version: 0.1.0
+version: 0.1.0+1
 
 environment:
   sdk: '>=3.4.0 <4.0.0'
