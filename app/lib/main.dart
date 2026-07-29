@@ -1,8 +1,5 @@
 /// Phase 1 Flutter client: a 2D live map mirroring the web debug view.
-/// This is also the app's fallback/indoor mode; the AR camera view (Phase 2)
-/// is a separate native platform-view screen that reuses [MetroApi].
 import 'dart:async';
-import 'dart:io' show Platform;
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -13,7 +10,6 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:latlong2/latlong.dart' hide Path; // latlong2's Path shadows dart:ui Path
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'ar_tunnels.dart';
 import 'legal.dart';
 import 'line_logo.dart';
 import 'line_stripe.dart';
@@ -99,9 +95,6 @@ extension MapStyleX on MapStyle {
         MapStyle.dark => Icons.dark_mode_rounded,
       };
 }
-
-// AR is gated out of the beta; enable with --dart-define=ENABLE_AR=true.
-const _arEnabled = bool.fromEnvironment('ENABLE_AR');
 
 // Cozy palette
 const _ink = Colors.black87;
@@ -525,7 +518,7 @@ class _MapScreenState extends State<MapScreen> {
             ),
           ),
 
-          // AR + reset-view + my-location buttons
+          // reset-view + my-location buttons
           SafeArea(
             child: Align(
               alignment: Alignment.bottomRight,
@@ -534,25 +527,6 @@ class _MapScreenState extends State<MapScreen> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    // AR is a planned feature, off by default so it stays out
-                    // of the beta. Build with --dart-define=ENABLE_AR=true to
-                    // show it. Also iOS-only (ARKit).
-                    if (_arEnabled && Platform.isIOS) ...[
-                      GestureDetector(
-                        onTap: () {
-                          HapticFeedback.selectionClick();
-                          Navigator.of(context).push(
-                            MaterialPageRoute(builder: (_) => ArTunnelsScreen(api: _api)),
-                          );
-                        },
-                        child: const Panel(
-                          padding: EdgeInsets.all(14),
-                          borderRadius: BorderRadius.all(Radius.circular(30)),
-                          child: Icon(Icons.view_in_ar_rounded, color: _ink),
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-                    ],
                     GestureDetector(
                       onTap: _resetView,
                       child: const Panel(
