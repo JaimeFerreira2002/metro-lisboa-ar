@@ -8,8 +8,6 @@
 	<false/>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Your location is used to center the map on where you are.</string>
-	<key>NSCameraUsageDescription</key>
-	<string>The camera is used for the AR view that shows the metro tunnels around you.</string>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
