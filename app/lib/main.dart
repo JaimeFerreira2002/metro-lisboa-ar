@@ -622,7 +622,12 @@ class _MapScreenState extends State<MapScreen> {
       inner = TrainsList(trains: _trains, onSelect: _followTrain);
       key = const ValueKey('trains');
     } else if (_tab == 3) {
-      inner = StationsList(api: _api, stations: _stations);
+      inner = StationsList(
+        api: _api,
+        stations: _stations,
+        favorites: _favorites,
+        onToggleFavorite: _toggleFavorite,
+      );
       key = const ValueKey('stations');
     } else if (_tab == 4) {
       inner = SingleChildScrollView(child: _infoContent());

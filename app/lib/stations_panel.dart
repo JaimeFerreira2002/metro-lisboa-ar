@@ -14,8 +14,16 @@ String fmtEta(double s) => '${(s / 60).floor()}:${(s % 60).round().toString().pa
 class StationsList extends StatefulWidget {
   final MetroApi api;
   final List<Station> stations;
+  final Set<String> favorites;
+  final void Function(String stopId) onToggleFavorite;
 
-  const StationsList({super.key, required this.api, required this.stations});
+  const StationsList({
+    super.key,
+    required this.api,
+    required this.stations,
+    required this.favorites,
+    required this.onToggleFavorite,
+  });
 
   @override
   State<StationsList> createState() => _StationsListState();
@@ -112,6 +120,7 @@ class _StationsListState extends State<StationsList> {
   }
 
   Widget _tile(Station s) {
+    final fav = widget.favorites.contains(s.stopId);
     return ExpansionTile(
       // Without a stable key, expansion state sticks to list position — after
       // filtering, a different station would appear open.
@@ -141,6 +150,23 @@ class _StationsListState extends State<StationsList> {
           Expanded(
             child: Text(s.name,
                 style: const TextStyle(color: Colors.black87, fontWeight: FontWeight.w600)),
+          ),
+          // Tapping the star toggles the favourite without expanding the row —
+          // the gesture detector claims the tap before the ExpansionTile does.
+          GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: () {
+              HapticFeedback.selectionClick();
+              widget.onToggleFavorite(s.stopId);
+            },
+            child: Padding(
+              padding: const EdgeInsets.all(4),
+              child: Icon(
+                fav ? Icons.star_rounded : Icons.star_outline_rounded,
+                color: fav ? const Color(starColor) : Colors.black38,
+                size: 20,
+              ),
+            ),
           ),
         ],
       ),
