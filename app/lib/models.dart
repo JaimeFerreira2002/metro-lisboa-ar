@@ -91,6 +91,69 @@ class Arrival {
       );
 }
 
+/// One ride on a single line, part of a [RoutePlan]. Mirrors server RouteLeg.
+class RouteLeg {
+  final String line;
+  final String destinoName;   // terminus you ride toward
+  final String boardStopName;
+  final String alightStopName;
+  final List<String> stopNames; // board → … → alight, inclusive
+  final int numStops;
+  final double waitSeconds;    // until the boarded train reaches the board stop
+  final double rideSeconds;    // board → alight travel time
+  final bool live;             // wait came from a live train, not the fallback
+
+  RouteLeg({
+    required this.line,
+    required this.destinoName,
+    required this.boardStopName,
+    required this.alightStopName,
+    required this.stopNames,
+    required this.numStops,
+    required this.waitSeconds,
+    required this.rideSeconds,
+    required this.live,
+  });
+
+  factory RouteLeg.fromJson(Map<String, dynamic> j) => RouteLeg(
+        line: j['line'] as String? ?? '',
+        destinoName: j['destino_name'] as String? ?? '',
+        boardStopName: j['board_stop_name'] as String? ?? '',
+        alightStopName: j['alight_stop_name'] as String? ?? '',
+        stopNames: (j['stop_names'] as List? ?? const []).cast<String>(),
+        numStops: (j['num_stops'] as num? ?? 0).toInt(),
+        waitSeconds: (j['wait_seconds'] as num? ?? 0).toDouble(),
+        rideSeconds: (j['ride_seconds'] as num? ?? 0).toDouble(),
+        live: j['live'] as bool? ?? false,
+      );
+}
+
+/// A fastest-route result from GET /route. Mirrors server RoutePlan.
+class RoutePlan {
+  final String fromStop;
+  final String toStop;
+  final double totalSeconds; // wait + ride + transfers, end to end
+  final List<RouteLeg> legs;
+
+  RoutePlan({
+    required this.fromStop,
+    required this.toStop,
+    required this.totalSeconds,
+    required this.legs,
+  });
+
+  int get transfers => legs.isEmpty ? 0 : legs.length - 1;
+
+  factory RoutePlan.fromJson(Map<String, dynamic> j) => RoutePlan(
+        fromStop: j['from_stop'] as String? ?? '',
+        toStop: j['to_stop'] as String? ?? '',
+        totalSeconds: (j['total_seconds'] as num? ?? 0).toDouble(),
+        legs: (j['legs'] as List? ?? const [])
+            .map((e) => RouteLeg.fromJson(e as Map<String, dynamic>))
+            .toList(),
+      );
+}
+
 class Station {
   final String stopId;
   final String name;

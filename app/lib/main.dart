@@ -17,6 +17,7 @@ import 'metro_api.dart';
 import 'models.dart';
 import 'nearby_panel.dart';
 import 'panel.dart';
+import 'route_planner.dart';
 import 'search_box.dart';
 import 'splash.dart';
 import 'station_details.dart';
@@ -360,6 +361,27 @@ class _MapScreenState extends State<MapScreen> {
     });
   }
 
+  /// Station closest to the user (or the selected one), used to pre-fill the
+  /// route planner's origin. Null when we have neither a location nor stations.
+  Station? _originGuess() {
+    if (_selectedStation != null) return _selectedStation;
+    final here = _userLocation;
+    if (here == null || _stations.isEmpty) return null;
+    const dist = Distance();
+    return _stations.reduce((a, b) => dist(here, a.pos) <= dist(here, b.pos) ? a : b);
+  }
+
+  void _openRoutePlanner() {
+    HapticFeedback.selectionClick();
+    Navigator.of(context).push(MaterialPageRoute(
+      builder: (_) => RoutePlannerScreen(
+        api: _api,
+        stations: _stations,
+        initialFrom: _originGuess(),
+      ),
+    ));
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -518,7 +540,7 @@ class _MapScreenState extends State<MapScreen> {
             ),
           ),
 
-          // reset-view + my-location buttons
+          // route-planner + reset-view + my-location buttons
           SafeArea(
             child: Align(
               alignment: Alignment.bottomRight,
@@ -527,6 +549,15 @@ class _MapScreenState extends State<MapScreen> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
+                    GestureDetector(
+                      onTap: _openRoutePlanner,
+                      child: const Panel(
+                        padding: EdgeInsets.all(14),
+                        borderRadius: BorderRadius.all(Radius.circular(30)),
+                        child: Icon(Icons.alt_route_rounded, color: _ink),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
                     GestureDetector(
                       onTap: _resetView,
                       child: const Panel(

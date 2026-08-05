@@ -91,6 +91,21 @@ class MetroApi {
     }
   }
 
+  /// Fastest route between two stations, using live train waits (`GET /route`).
+  /// Single attempt; returns null on failure or when no route is found (404 —
+  /// e.g. the topology is still warming up after a server restart).
+  Future<RoutePlan?> route(String fromStopId, String toStopId) async {
+    try {
+      final uri = Uri.parse('$base/route')
+          .replace(queryParameters: {'from': fromStopId, 'to': toStopId});
+      final resp = await http.get(uri);
+      if (resp.statusCode != 200) return null;
+      return RoutePlan.fromJson(jsonDecode(resp.body) as Map<String, dynamic>);
+    } catch (_) {
+      return null;
+    }
+  }
+
   /// Live train snapshots via Server-Sent Events (`GET /stream`).
   /// Reconnects automatically if the server is down or the connection drops.
   Stream<List<TrainPosition>> trainStream() async* {

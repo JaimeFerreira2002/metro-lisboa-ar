@@ -8,7 +8,7 @@ import logging
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException, Query
 from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
@@ -17,6 +17,7 @@ from .metro_client import MetroClient
 from .poller import run_poller
 from .reference import Reference
 from .registry import Registry
+from .router import plan_route
 from .track import TrackGeometry
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(levelname)s %(message)s")
@@ -77,6 +78,33 @@ async def lines():
 async def station_arrivals(stop_id: str):
     reg: Registry = app.state.registry
     return reg.arrivals_at(app.state.ref, stop_id)
+
+
+@app.get("/route")
+async def route(
+    from_stop: str = Query(alias="from"),
+    to_stop: str = Query(alias="to"),
+):
+    """Fastest route between two stations using live train waits.
+
+    Query params are `from` and `to` (station stop_ids). 404 for unknown stops or
+    when the destination isn't reachable from the current (possibly still-warming)
+    topology."""
+    reg: Registry = app.state.registry
+    ref: Reference = app.state.ref
+    if from_stop not in ref.stations:
+        raise HTTPException(status_code=404, detail=f"unknown station: {from_stop}")
+    if to_stop not in ref.stations:
+        raise HTTPException(status_code=404, detail=f"unknown station: {to_stop}")
+
+    def station_name(sid: str) -> str:
+        s = ref.stations.get(sid)
+        return s.name if s else sid
+
+    plan = plan_route(reg, station_name, ref.destino_name, from_stop, to_stop)
+    if plan is None:
+        raise HTTPException(status_code=404, detail="no route found (topology still warming up)")
+    return plan.model_dump()
 
 
 @app.get("/track")
