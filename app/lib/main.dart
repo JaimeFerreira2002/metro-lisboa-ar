@@ -273,6 +273,57 @@ class _MapScreenState extends State<MapScreen> {
     ];
   }
 
+  /// The leg drawn along the real tunnel, not as chords between stations: snap
+  /// the board and alight stations onto this line's baked track polyline and take
+  /// the slice between them (reversed if the polyline runs the other way). Falls
+  /// back to straight station-to-station segments when the track isn't loaded or
+  /// the line has no geometry.
+  List<LatLng> _routeLegPath(RouteLeg leg) {
+    final byName = _stationByName;
+    final board = byName[leg.boardStopName]?.pos;
+    final alight = byName[leg.alightStopName]?.pos;
+    final straight = _legPoints(leg);
+    if (board == null || alight == null) return straight;
+
+    List<LatLng>? best;
+    var bestErr = double.infinity;
+    for (final t in _track) {
+      if (t.line != leg.line || t.points.length < 2) continue;
+      final ia = _nearestIndex(t.points, board);
+      final ib = _nearestIndex(t.points, alight);
+      final err = _sqDist(t.points[ia], board) + _sqDist(t.points[ib], alight);
+      if (err < bestErr) {
+        bestErr = err;
+        final slice = ia <= ib
+            ? t.points.sublist(ia, ib + 1)
+            : t.points.sublist(ib, ia + 1).reversed.toList();
+        best = [board, ...slice, alight];
+      }
+    }
+    return best ?? straight;
+  }
+
+  int _nearestIndex(List<LatLng> pts, LatLng p) {
+    var best = 0;
+    var bestD = double.infinity;
+    for (var i = 0; i < pts.length; i++) {
+      final d = _sqDist(pts[i], p);
+      if (d < bestD) {
+        bestD = d;
+        best = i;
+      }
+    }
+    return best;
+  }
+
+  /// Cheap squared distance for nearest-vertex search, longitude scaled by
+  /// latitude so it's roughly metric at Lisbon.
+  double _sqDist(LatLng a, LatLng b) {
+    final dLat = a.latitude - b.latitude;
+    final dLon = (a.longitude - b.longitude) * math.cos(a.latitude * math.pi / 180);
+    return dLat * dLat + dLon * dLon;
+  }
+
   void _fitRouteBounds(ActiveRoute r) => _fitPoints([for (final leg in r.plan.legs) ..._legPoints(leg)]);
 
   void _fitLegBounds(ActiveRoute r) {
@@ -295,7 +346,7 @@ class _MapScreenState extends State<MapScreen> {
     final out = <Polyline>[];
     for (var i = 0; i < r.plan.legs.length; i++) {
       final leg = r.plan.legs[i];
-      final pts = _legPoints(leg);
+      final pts = _routeLegPath(leg); // follow the tunnel, not chords
       if (pts.length < 2) continue;
       final color = Color(lineColors[leg.line] ?? 0xFF888888);
       final done = i < r.currentLeg;
