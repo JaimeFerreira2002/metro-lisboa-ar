@@ -23,11 +23,16 @@ class RoutePlannerScreen extends StatefulWidget {
   final List<Station> stations;
   final Station? initialFrom;
 
+  /// Start (pin) this plan as the active route. When null, the "Start route"
+  /// button is hidden.
+  final void Function(RoutePlan plan, Station from, Station to)? onStart;
+
   const RoutePlannerScreen({
     super.key,
     required this.api,
     required this.stations,
     this.initialFrom,
+    this.onStart,
   });
 
   @override
@@ -263,9 +268,37 @@ class _RoutePlannerScreenState extends State<RoutePlannerScreen> {
           if (i > 0) _transferDivider(),
           _legCard(plan.legs[i]),
         ],
+        if (widget.onStart != null && _from != null && _to != null) ...[
+          const SizedBox(height: 16),
+          _startButton(plan),
+        ],
       ],
     );
   }
+
+  Widget _startButton(RoutePlan plan) => GestureDetector(
+        onTap: () {
+          HapticFeedback.mediumImpact();
+          widget.onStart!(plan, _from!, _to!);
+          Navigator.of(context).pop();
+        },
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          decoration: BoxDecoration(
+            color: const Color(0xFF00A19B), // Verde — "go"
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.navigation_rounded, color: Colors.white, size: 20),
+              const SizedBox(width: 10),
+              Text(tr('Start route', 'Iniciar rota'),
+                  style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w700)),
+            ],
+          ),
+        ),
+      );
 
   Widget _transferDivider() => Padding(
         padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),

@@ -126,6 +126,20 @@ class RouteLeg {
         rideSeconds: (j['ride_seconds'] as num? ?? 0).toDouble(),
         live: j['live'] as bool? ?? false,
       );
+
+  /// Same shape as the server wire contract, so it round-trips through
+  /// [RouteLeg.fromJson] — used to persist an active route locally.
+  Map<String, dynamic> toJson() => {
+        'line': line,
+        'destino_name': destinoName,
+        'board_stop_name': boardStopName,
+        'alight_stop_name': alightStopName,
+        'stop_names': stopNames,
+        'num_stops': numStops,
+        'wait_seconds': waitSeconds,
+        'ride_seconds': rideSeconds,
+        'live': live,
+      };
 }
 
 /// A fastest-route result from GET /route. Mirrors server RoutePlan.
@@ -152,6 +166,13 @@ class RoutePlan {
             .map((e) => RouteLeg.fromJson(e as Map<String, dynamic>))
             .toList(),
       );
+
+  Map<String, dynamic> toJson() => {
+        'from_stop': fromStop,
+        'to_stop': toStop,
+        'total_seconds': totalSeconds,
+        'legs': legs.map((l) => l.toJson()).toList(),
+      };
 }
 
 class Station {

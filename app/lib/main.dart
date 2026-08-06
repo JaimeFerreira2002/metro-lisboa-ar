@@ -16,8 +16,11 @@ import 'line_stripe.dart';
 import 'metro_api.dart';
 import 'models.dart';
 import 'nearby_panel.dart';
+import 'active_route.dart';
+import 'live_activity.dart';
 import 'panel.dart';
 import 'route_planner.dart';
+import 'route_progress_card.dart';
 import 'search_box.dart';
 import 'splash.dart';
 import 'station_details.dart';
@@ -130,6 +133,11 @@ class _MapScreenState extends State<MapScreen> {
   DateTime? _lastUpdate; // when the last live snapshot arrived
   Timer? _linesTimer;
 
+  // Active route the user has started (persisted). Null when not travelling.
+  ActiveRoute? _activeRoute;
+  double? _legWaitLive; // live wait for the current leg's next train, if known
+  Timer? _routeTimer;
+
   @override
   void initState() {
     super.initState();
@@ -141,6 +149,7 @@ class _MapScreenState extends State<MapScreen> {
     _linesTimer = Timer.periodic(const Duration(seconds: 20), (_) => _refreshLines());
     _initLocation();
     _loadFavorites();
+    _loadActiveRoute();
   }
 
   // ---- favourites ----
@@ -161,6 +170,178 @@ class _MapScreenState extends State<MapScreen> {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setStringList(_favKey, next.toList());
   }
+
+  // ---- active route ----
+
+  Future<void> _loadActiveRoute() async {
+    final r = await ActiveRoute.load();
+    if (!mounted || r == null || r.isComplete) return;
+    setState(() => _activeRoute = r);
+    _startRouteTimer();
+    _refreshLegHint();
+    LiveActivityService.start(r);
+  }
+
+  /// Called from the route planner's "Start route" button.
+  void _startRoute(RoutePlan plan, Station from, Station to) {
+    HapticFeedback.mediumImpact();
+    final r = ActiveRoute(
+      plan: plan,
+      fromName: from.name,
+      toName: to.name,
+      startedAt: DateTime.now(),
+    );
+    setState(() {
+      _activeRoute = r;
+      _legWaitLive = null;
+      _tab = 0;
+      _selectedStation = null;
+      _followTrainId = null;
+      _settingsOpen = false;
+    });
+    r.save();
+    LiveActivityService.start(r);
+    _startRouteTimer();
+    _refreshLegHint();
+    _fitRouteBounds(r);
+  }
+
+  void _advanceRoute() {
+    final r = _activeRoute;
+    if (r == null) return;
+    final next = r.copyWith(currentLeg: r.currentLeg + 1);
+    if (next.isComplete) {
+      _endRoute(arrived: true);
+      return;
+    }
+    HapticFeedback.selectionClick();
+    setState(() {
+      _activeRoute = next;
+      _legWaitLive = null;
+    });
+    next.save();
+    LiveActivityService.update(next);
+    _refreshLegHint();
+    _fitLegBounds(next);
+  }
+
+  void _endRoute({bool arrived = false}) {
+    HapticFeedback.selectionClick();
+    _routeTimer?.cancel();
+    _routeTimer = null;
+    setState(() {
+      _activeRoute = null;
+      _legWaitLive = null;
+    });
+    ActiveRoute.clear();
+    LiveActivityService.end();
+    if (arrived && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(tr("You've arrived.", 'Chegou ao destino.')),
+        behavior: SnackBarBehavior.floating,
+      ));
+    }
+  }
+
+  void _startRouteTimer() {
+    _routeTimer?.cancel();
+    _routeTimer = Timer.periodic(const Duration(seconds: 30), (_) => _refreshLegHint());
+  }
+
+  /// Live wait for the current leg's next train at its board station.
+  Future<void> _refreshLegHint() async {
+    final leg = _activeRoute?.leg;
+    if (leg == null) return;
+    final board = _stationByName[leg.boardStopName];
+    if (board == null) return;
+    final arrivals = await _api.arrivals(board.stopId);
+    final etas = arrivals
+        .where((a) => a.line == leg.line && a.destinoName == leg.destinoName)
+        .map((a) => a.etaSeconds)
+        .toList();
+    if (!mounted || _activeRoute?.leg != leg) return;
+    setState(() => _legWaitLive = etas.isEmpty ? null : etas.reduce(math.min));
+  }
+
+  Map<String, Station> get _stationByName => {for (final s in _stations) s.name: s};
+
+  List<LatLng> _legPoints(RouteLeg leg) {
+    final byName = _stationByName;
+    return [
+      for (final n in leg.stopNames)
+        if (byName[n] != null) byName[n]!.pos,
+    ];
+  }
+
+  void _fitRouteBounds(ActiveRoute r) => _fitPoints([for (final leg in r.plan.legs) ..._legPoints(leg)]);
+
+  void _fitLegBounds(ActiveRoute r) {
+    final leg = r.leg;
+    if (leg != null) _fitPoints(_legPoints(leg));
+  }
+
+  void _fitPoints(List<LatLng> pts) {
+    if (pts.length < 2) {
+      if (pts.length == 1) _mapController.move(pts.first, 15);
+      return;
+    }
+    _mapController.fitCamera(CameraFit.bounds(
+      bounds: LatLngBounds.fromPoints(pts),
+      padding: const EdgeInsets.fromLTRB(60, 120, 60, 260),
+    ));
+  }
+
+  List<Polyline> _routePolylines(ActiveRoute r) {
+    final out = <Polyline>[];
+    for (var i = 0; i < r.plan.legs.length; i++) {
+      final leg = r.plan.legs[i];
+      final pts = _legPoints(leg);
+      if (pts.length < 2) continue;
+      final color = Color(lineColors[leg.line] ?? 0xFF888888);
+      final done = i < r.currentLeg;
+      out.add(Polyline(
+        points: pts,
+        color: done ? color.withOpacity(0.25) : color,
+        strokeWidth: i == r.currentLeg ? 7 : 5,
+        borderColor: Colors.white.withOpacity(0.85),
+        borderStrokeWidth: 1.5,
+      ));
+    }
+    return out;
+  }
+
+  List<Marker> _routeMarkers(ActiveRoute r) {
+    final byName = _stationByName;
+    final legs = r.plan.legs;
+    if (legs.isEmpty) return const [];
+    final markers = <Marker>[];
+    final originName = legs.first.stopNames.isNotEmpty ? legs.first.stopNames.first : legs.first.boardStopName;
+    final origin = byName[originName];
+    if (origin != null) markers.add(_routePin(origin.pos, Icons.trip_origin_rounded, Colors.black87));
+    for (var i = 1; i < legs.length; i++) {
+      final s = byName[legs[i].boardStopName];
+      if (s != null) markers.add(_routePin(s.pos, Icons.sync_alt_rounded, Color(lineColors[legs[i].line] ?? 0xFF888888)));
+    }
+    final destName = legs.last.stopNames.isNotEmpty ? legs.last.stopNames.last : legs.last.alightStopName;
+    final dest = byName[destName];
+    if (dest != null) markers.add(_routePin(dest.pos, Icons.flag_rounded, const Color(0xFFEA1D76)));
+    return markers;
+  }
+
+  Marker _routePin(LatLng pos, IconData icon, Color color) => Marker(
+        point: pos,
+        width: 30,
+        height: 30,
+        child: Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            shape: BoxShape.circle,
+            border: Border.all(color: color, width: 2.5),
+            boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.2), blurRadius: 4)],
+          ),
+          child: Icon(icon, color: color, size: 16),
+        ),
+      );
 
   void _onConnectionChanged() {
     if (mounted) setState(() {});
@@ -235,6 +416,7 @@ class _MapScreenState extends State<MapScreen> {
   @override
   void dispose() {
     _linesTimer?.cancel();
+    _routeTimer?.cancel();
     _api.connected.removeListener(_onConnectionChanged);
     super.dispose();
   }
@@ -378,6 +560,7 @@ class _MapScreenState extends State<MapScreen> {
         api: _api,
         stations: _stations,
         initialFrom: _originGuess(),
+        onStart: _startRoute,
       ),
     ));
   }
@@ -409,6 +592,11 @@ class _MapScreenState extends State<MapScreen> {
                         ))
                     .toList(),
               ),
+              // Active route drawn over the base track, under the markers.
+              if (_activeRoute != null) ...[
+                PolylineLayer(polylines: _routePolylines(_activeRoute!)),
+                MarkerLayer(markers: _routeMarkers(_activeRoute!)),
+              ],
               // station dots would clutter the city-wide view — only show them
               // once you're zoomed in enough for them to be useful
               if (_showStations)
@@ -581,24 +769,39 @@ class _MapScreenState extends State<MapScreen> {
             ),
           ),
 
-          // Animated panels (slide up + fade between states)
+          // Animated panels (slide up + fade between states), with the pinned
+          // active-route card floating just above them when a trip is running.
           SafeArea(
             child: Align(
               alignment: Alignment.bottomCenter,
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(12, 12, 12, 80),
-                child: AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 320),
-                  switchInCurve: Curves.easeOutCubic,
-                  switchOutCurve: Curves.easeInCubic,
-                  transitionBuilder: (child, anim) => FadeTransition(
-                    opacity: anim,
-                    child: SlideTransition(
-                      position: Tween(begin: const Offset(0, 0.18), end: Offset.zero).animate(anim),
-                      child: child,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (_activeRoute != null && !_activeRoute!.isComplete) ...[
+                      RouteProgressCard(
+                        route: _activeRoute!,
+                        liveWaitSeconds: _legWaitLive,
+                        onNext: _advanceRoute,
+                        onEnd: _endRoute,
+                      ),
+                      const SizedBox(height: 10),
+                    ],
+                    AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 320),
+                      switchInCurve: Curves.easeOutCubic,
+                      switchOutCurve: Curves.easeInCubic,
+                      transitionBuilder: (child, anim) => FadeTransition(
+                        opacity: anim,
+                        child: SlideTransition(
+                          position: Tween(begin: const Offset(0, 0.18), end: Offset.zero).animate(anim),
+                          child: child,
+                        ),
+                      ),
+                      child: _panelContent(),
                     ),
-                  ),
-                  child: _panelContent(),
+                  ],
                 ),
               ),
             ),

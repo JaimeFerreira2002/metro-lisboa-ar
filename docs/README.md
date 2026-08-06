@@ -18,6 +18,7 @@ estimates are wrong.
 | [ROUTING.md](ROUTING.md) | Fastest-route planning from live train waits |
 | [APP.md](APP.md) | The Flutter client, module by module |
 | [WIDGET.md](WIDGET.md) | The iOS home-screen widget |
+| [LIVE_ACTIVITY.md](LIVE_ACTIVITY.md) | Active route on the lock screen / Dynamic Island |
 | [API.md](API.md) | **Metro Lisboa's API** — live-verified reference, quirks and all |
 
 ## Running and shipping it
