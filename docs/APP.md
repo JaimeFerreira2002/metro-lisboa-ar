@@ -6,7 +6,10 @@ talks to Metro, only to our server. See [ARCHITECTURE.md](ARCHITECTURE.md) for w
 | File | Lines | Job |
 |---|---|---|
 | `main.dart` | ~1,300 | **Everything visual.** Map, overlays, panels, nav, settings |
-| `route_planner.dart` | ~380 | Fastest-route planner screen (calls `GET /route`) |
+| `route_planner.dart` | ~420 | Fastest-route planner screen (calls `GET /route`) |
+| `active_route.dart` | ~85 | A started route + its progress, persisted locally |
+| `route_progress_card.dart` | ~185 | The pinned "you're on a route" card |
+| `live_activity.dart` | ~65 | Bridge to the iOS Live Activity (no-ops until wired) |
 | `nearby_panel.dart` | 230 | Closest stations to you, with live arrivals |
 | `stations_panel.dart` | 207 | All 50 stations, line filter, expandable arrivals |
 | `station_details.dart` | 175 | One station: lines, favourite toggle, next trains |
