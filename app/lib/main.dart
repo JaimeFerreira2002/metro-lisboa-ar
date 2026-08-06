@@ -117,7 +117,8 @@ class _MapScreenState extends State<MapScreen> {
   final _api = MetroApi();
   final _mapController = MapController();
 
-  int _tab = 0; // 0 map, 1 nearby, 2 trains, 3 stations, 4 info (settings = gear)
+  int _tab = 0; // 0 map, 1 nearby, 2 transit (trains/stations), 3 info (settings = gear)
+  bool _transitStations = false; // transit panel sub-tab: false = trains, true = stations
   MapStyle _style = MapStyle.cozy;
 
   List<TrackLine> _track = [];
@@ -779,7 +780,7 @@ class _MapScreenState extends State<MapScreen> {
             ),
           ),
 
-          // route-planner + reset-view + my-location buttons
+          // reset-view + my-location buttons (route planner moved to the nav bar)
           SafeArea(
             child: Align(
               alignment: Alignment.bottomRight,
@@ -788,15 +789,6 @@ class _MapScreenState extends State<MapScreen> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    GestureDetector(
-                      onTap: _openRoutePlanner,
-                      child: const Panel(
-                        padding: EdgeInsets.all(14),
-                        borderRadius: BorderRadius.all(Radius.circular(30)),
-                        child: Icon(Icons.alt_route_rounded, color: _ink),
-                      ),
-                    ),
-                    const SizedBox(height: 10),
                     GestureDetector(
                       onTap: _resetView,
                       child: const Panel(
@@ -904,17 +896,29 @@ class _MapScreenState extends State<MapScreen> {
             );
       key = const ValueKey('nearby');
     } else if (_tab == 2) {
-      inner = TrainsList(trains: _trains, onSelect: _followTrain);
-      key = const ValueKey('trains');
-    } else if (_tab == 3) {
-      inner = StationsList(
-        api: _api,
-        stations: _stations,
-        favorites: _favorites,
-        onToggleFavorite: _toggleFavorite,
+      // One nav item for both lists; a toggle inside the panel switches between
+      // them, and the two components are used unchanged.
+      inner = Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _transitToggle(),
+          const SizedBox(height: 12),
+          // Placed directly (not in a Flexible): each list is a min-size Column
+          // with an internal Flexible + shrink-wrapped ListView, so the panel
+          // stays content-sized and only grows/scrolls up to the 0.6h cap.
+          _transitStations
+              ? StationsList(
+                  api: _api,
+                  stations: _stations,
+                  favorites: _favorites,
+                  onToggleFavorite: _toggleFavorite,
+                )
+              : TrainsList(trains: _trains, onSelect: _followTrain),
+        ],
       );
-      key = const ValueKey('stations');
-    } else if (_tab == 4) {
+      key = const ValueKey('transit');
+    } else if (_tab == 3) {
       inner = SingleChildScrollView(child: _infoContent());
       key = const ValueKey('info');
     } else {
@@ -925,6 +929,62 @@ class _MapScreenState extends State<MapScreen> {
       key: key,
       constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.6),
       child: Panel(glowColor: glow, child: inner),
+    );
+  }
+
+  /// Segmented Trains | Stations switch shown at the top of the transit panel.
+  Widget _transitToggle() {
+    return Container(
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: Colors.black.withOpacity(0.05),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: _transitSegment(
+                Icons.directions_subway_rounded, tr('Trains', 'Comboios'), !_transitStations, false),
+          ),
+          Expanded(
+            child: _transitSegment(
+                Icons.pin_drop_rounded, tr('Stations', 'Estações'), _transitStations, true),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _transitSegment(IconData icon, String label, bool selected, bool stations) {
+    return GestureDetector(
+      onTap: () {
+        if (_transitStations == stations) return;
+        HapticFeedback.selectionClick();
+        setState(() => _transitStations = stations);
+      },
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        padding: const EdgeInsets.symmetric(vertical: 9),
+        decoration: BoxDecoration(
+          color: selected ? Colors.white : Colors.transparent,
+          borderRadius: BorderRadius.circular(11),
+          boxShadow: selected
+              ? [BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 6, offset: const Offset(0, 2))]
+              : null,
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, size: 18, color: selected ? _ink : _inkSoft),
+            const SizedBox(width: 6),
+            Text(label,
+                style: TextStyle(
+                    color: selected ? _ink : _inkSoft,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 13)),
+          ],
+        ),
+      ),
     );
   }
 
@@ -1321,10 +1381,17 @@ class _MapScreenState extends State<MapScreen> {
                 children: [
                   // Map sits in the middle as the standout "home" button
                   _navItem(Icons.explore_rounded, tr('Nearby', 'Perto'), 1),
-                  _navItem(Icons.directions_subway_rounded, tr('Trains', 'Comboios'), 2),
+                  // Trains + Stations share one item; the icon/label follow the
+                  // panel's active sub-tab.
+                  _navItem(
+                    _transitStations ? Icons.pin_drop_rounded : Icons.directions_subway_rounded,
+                    _transitStations ? tr('Stations', 'Estações') : tr('Trains', 'Comboios'),
+                    2,
+                  ),
                   _mapNavButton(),
-                  _navItem(Icons.pin_drop_rounded, tr('Stations', 'Estações'), 3),
-                  _navItem(Icons.info_rounded, tr('Info', 'Info'), 4),
+                  // Plan-route lives in the nav bar now (an action, not a tab).
+                  _navAction(Icons.alt_route_rounded, tr('Route', 'Rota'), _openRoutePlanner),
+                  _navItem(Icons.info_rounded, tr('Info', 'Info'), 3),
                 ],
               ),
             ),
@@ -1402,6 +1469,19 @@ class _MapScreenState extends State<MapScreen> {
             ],
           ],
         ),
+      ),
+    );
+  }
+
+  /// A nav-bar item that fires an action instead of selecting a tab (used for
+  /// the route planner, which opens its own screen). Styled like an unselected
+  /// [_navItem] — icon only, no persistent selected state.
+  Widget _navAction(IconData icon, String label, VoidCallback onTap) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 10),
+        child: Icon(icon, size: 22, color: _inkSoft, semanticLabel: label),
       ),
     );
   }
