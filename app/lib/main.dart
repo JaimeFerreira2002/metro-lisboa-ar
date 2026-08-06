@@ -831,18 +831,23 @@ class _MapScreenState extends State<MapScreen> {
                       ),
                       const SizedBox(height: 10),
                     ],
-                    AnimatedSwitcher(
-                      duration: const Duration(milliseconds: 320),
-                      switchInCurve: Curves.easeOutCubic,
-                      switchOutCurve: Curves.easeInCubic,
-                      transitionBuilder: (child, anim) => FadeTransition(
-                        opacity: anim,
-                        child: SlideTransition(
-                          position: Tween(begin: const Offset(0, 0.18), end: Offset.zero).animate(anim),
-                          child: child,
+                    // Flexible so the panel yields height to the route card
+                    // above it on shorter screens instead of overflowing the
+                    // space above the nav bar.
+                    Flexible(
+                      child: AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 320),
+                        switchInCurve: Curves.easeOutCubic,
+                        switchOutCurve: Curves.easeInCubic,
+                        transitionBuilder: (child, anim) => FadeTransition(
+                          opacity: anim,
+                          child: SlideTransition(
+                            position: Tween(begin: const Offset(0, 0.18), end: Offset.zero).animate(anim),
+                            child: child,
+                          ),
                         ),
+                        child: _panelContent(),
                       ),
-                      child: _panelContent(),
                     ),
                   ],
                 ),
@@ -904,17 +909,20 @@ class _MapScreenState extends State<MapScreen> {
         children: [
           _transitToggle(),
           const SizedBox(height: 12),
-          // Placed directly (not in a Flexible): each list is a min-size Column
-          // with an internal Flexible + shrink-wrapped ListView, so the panel
-          // stays content-sized and only grows/scrolls up to the 0.6h cap.
-          _transitStations
-              ? StationsList(
-                  api: _api,
-                  stations: _stations,
-                  favorites: _favorites,
-                  onToggleFavorite: _toggleFavorite,
-                )
-              : TrainsList(trains: _trains, onSelect: _followTrain),
+          // Flexible (loose) bounds the list's height: a non-flex child would be
+          // measured unbounded, so the shrink-wrapped ListView would render every
+          // row and overflow the 0.6h cap. Loose fit still lets it shrink when
+          // there are only a few items.
+          Flexible(
+            child: _transitStations
+                ? StationsList(
+                    api: _api,
+                    stations: _stations,
+                    favorites: _favorites,
+                    onToggleFavorite: _toggleFavorite,
+                  )
+                : TrainsList(trains: _trains, onSelect: _followTrain),
+          ),
         ],
       );
       key = const ValueKey('transit');
