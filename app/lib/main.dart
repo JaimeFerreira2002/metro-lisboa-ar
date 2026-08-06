@@ -831,18 +831,23 @@ class _MapScreenState extends State<MapScreen> {
                       ),
                       const SizedBox(height: 10),
                     ],
-                    AnimatedSwitcher(
-                      duration: const Duration(milliseconds: 320),
-                      switchInCurve: Curves.easeOutCubic,
-                      switchOutCurve: Curves.easeInCubic,
-                      transitionBuilder: (child, anim) => FadeTransition(
-                        opacity: anim,
-                        child: SlideTransition(
-                          position: Tween(begin: const Offset(0, 0.18), end: Offset.zero).animate(anim),
-                          child: child,
+                    // Flexible so the panel yields height to the route card
+                    // above it on shorter screens instead of overflowing the
+                    // space above the nav bar.
+                    Flexible(
+                      child: AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 320),
+                        switchInCurve: Curves.easeOutCubic,
+                        switchOutCurve: Curves.easeInCubic,
+                        transitionBuilder: (child, anim) => FadeTransition(
+                          opacity: anim,
+                          child: SlideTransition(
+                            position: Tween(begin: const Offset(0, 0.18), end: Offset.zero).animate(anim),
+                            child: child,
+                          ),
                         ),
+                        child: _panelContent(),
                       ),
-                      child: _panelContent(),
                     ),
                   ],
                 ),
