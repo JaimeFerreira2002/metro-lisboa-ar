@@ -904,17 +904,20 @@ class _MapScreenState extends State<MapScreen> {
         children: [
           _transitToggle(),
           const SizedBox(height: 12),
-          // Placed directly (not in a Flexible): each list is a min-size Column
-          // with an internal Flexible + shrink-wrapped ListView, so the panel
-          // stays content-sized and only grows/scrolls up to the 0.6h cap.
-          _transitStations
-              ? StationsList(
-                  api: _api,
-                  stations: _stations,
-                  favorites: _favorites,
-                  onToggleFavorite: _toggleFavorite,
-                )
-              : TrainsList(trains: _trains, onSelect: _followTrain),
+          // Flexible (loose) bounds the list's height: a non-flex child would be
+          // measured unbounded, so the shrink-wrapped ListView would render every
+          // row and overflow the 0.6h cap. Loose fit still lets it shrink when
+          // there are only a few items.
+          Flexible(
+            child: _transitStations
+                ? StationsList(
+                    api: _api,
+                    stations: _stations,
+                    favorites: _favorites,
+                    onToggleFavorite: _toggleFavorite,
+                  )
+                : TrainsList(trains: _trains, onSelect: _followTrain),
+          ),
         ],
       );
       key = const ValueKey('transit');

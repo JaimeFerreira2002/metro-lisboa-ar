@@ -63,7 +63,7 @@ class StripeHeader extends StatelessWidget {
             Expanded(
               child: Text(title,
                   style: const TextStyle(
-                      color: Colors.black87, fontSize: 20, fontWeight: FontWeight.w700)),
+                      color: Colors.black87, fontSize: 20, fontWeight: FontWeight.w800)),
             ),
             if (trailing != null) trailing!,
           ],
