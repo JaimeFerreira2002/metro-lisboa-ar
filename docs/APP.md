@@ -41,7 +41,8 @@ The fields that drive everything:
 List<TrainPosition> _trains;   // latest SSE snapshot
 List<Station> _stations;       // fetched once
 List<TrackLine> _track;        // fetched once
-int _tab;                      // 0 map · 1 nearby · 2 trains · 3 stations · 4 info
+int _tab;                      // 0 map · 1 nearby · 2 transit (trains/stations) · 3 info
+bool _transitStations;         // transit sub-tab: false = trains, true = stations
 Station? _selectedStation;     // station panel open
 String? _followTrainId;        // camera glued to this train
 bool _settingsOpen;            // gear panel
