@@ -15,6 +15,7 @@ estimates are wrong.
 |---|---|
 | [ARCHITECTURE.md](ARCHITECTURE.md) | The idea, the data flow, the honest limits |
 | [SERVER.md](SERVER.md) | The Python backend, module by module |
+| [ROUTING.md](ROUTING.md) | Fastest-route planning from live train waits |
 | [APP.md](APP.md) | The Flutter client, module by module |
 | [WIDGET.md](WIDGET.md) | The iOS home-screen widget |
 | [API.md](API.md) | **Metro Lisboa's API** — live-verified reference, quirks and all |

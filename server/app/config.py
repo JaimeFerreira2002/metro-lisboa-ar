@@ -27,5 +27,13 @@ class Settings(BaseSettings):
     # Default segment travel time (s) before one is learned from the feed.
     default_segment_seconds: float = 100.0
 
+    # Route planning.
+    # Nominal wait (s) assumed when no live train is currently observed heading a
+    # given direction — a fallback headway so routing still works off-peak / cold.
+    default_headway_seconds: float = 360.0
+    # Penalty (s) for changing lines: walking between platforms, on top of the
+    # wait for the next train on the new line.
+    transfer_penalty_seconds: float = 90.0
+
 
 settings = Settings()

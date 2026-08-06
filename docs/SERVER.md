@@ -189,6 +189,15 @@ one is `/stream`, an SSE endpoint whose generator loops forever, serialising
 its own generator and its own `snapshot()` call, so snapshot cost scales with viewers
 (the *poll* cost doesn't).
 
+`/route?from=<stop>&to=<stop>` is the newest route and the one with real logic behind
+it: it plans the **fastest** trip using live train waits, not the fewest stops. The
+planner lives in [`router.py`](../server/app/router.py) — a Dijkstra over
+`(station, direction)` states whose edge weights come straight from what the registry
+has learned: the live wait for the next train in a direction, the EMA segment times,
+and a transfer penalty. See [ROUTING.md](ROUTING.md) for the model. It 404s for unknown
+stations and when the destination isn't reachable from the current (possibly
+still-warming) topology.
+
 `/` serves the debug map from `server/web/` — a single Leaflet page, no build step,
 the fastest way to see whether the server is sane. It's mounted only if the directory
 exists, and **it's public in production**. See [SECURITY.md](SECURITY.md).
